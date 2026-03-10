@@ -1,134 +1,144 @@
-memory = {}
-# this is the toy memory that was required
-
-def memory_write(addr, byte):
-    memory[addr] = byte & 0xFF
+toy_memory = {}
 
 
-def memory_read(addr):
-    return memory.get(addr, 0)
+def memory_write(address, value):
+    toy_memory[address] = value & 0xFF
+
+
+def memory_read(address):
+    return toy_memory.get(address, 0)
 
 
 def convert(n):
-    hex_str = f"0x{n:04X}"
-    bin_str = format(n, '016b')
-    signed = n if n < 32768 else n - 65536
-    return hex_str, bin_str, signed
+    as_hex = f"0x{n:04X}"
+    as_bin = format(n, "016b")
+    as_signed = n - 65536 if n >= 32768 else n
+    return as_hex, as_bin, as_signed
 
 
-def pack_u16_le(n):
-    low = n & 0xFF
-    high = (n >> 8) & 0xFF
-    return low, high
+def pack16(num):
+    bottom = num & 0xFF
+    top = (num >> 8) & 0xFF
+    return bottom, top
 
 
-def unpack_u16_le(low, high):
-    return low + (high << 8)
+def unpack16(bottom, top):
+    return bottom | (top << 8)
 
 
-def ascii_dump_lines(s, base=0x1000):
-    lines = []
-    for i, ch in enumerate(s):
-        addr = base + i
-        lines.append(f"0x{addr:04X} : 0x{ord(ch):02X}")
-    null_addr = base + len(s)
-    lines.append(f"0x{null_addr:04X} : 0x00")
-    return lines
+def ascii_dump(text, start=0x1000):
+    result = []
+    for offset, ch in enumerate(text):
+        result.append(f"0x{start + offset:04X} : 0x{ord(ch):02X}") 
+        
+    result.append(f"0x{start + len(text):04X} : 0x00")
+    return result
 
 
-def element_address(base, index, size):
-    return base + index * size
+def array_address(base, index, size):
+    return base + (index * size)
 
 
-def stack_frame_lines(a, b):
-    lines = []
-    lines.append("bp     : RETURN")
-    lines.append(f"bp+2   : a = {a}")
-    lines.append(f"bp+4   : b = {b}")
-    return lines
+def show_stack(a, b):
+    return [
+        "bp     : RETURN",
+        f"bp+2   : a = {a}",
+        f"bp+4   : b = {b}",
+    ]
+
+
+DIVIDER = "-" * 35
 
 
 def main():
-    while True:
-        print("\n1) Convert (decimal -> hex and 16-bit binary)")
-        print("2) Little-endian pack/unpack (16-bit)")
-        print("3) ASCII memory dump")
-        print("4) Array addressing")
-        print("5) Stack frame (bp offsets)")
-        print("0) Exit")
+    running = True
 
-        match input("Choose an option: ").strip():
+    while running:
+        print(f"\n{DIVIDER}")
+        print(" CMP5361 - Memory & Number Tool")
+        print(DIVIDER)
+        print(" [1]  Number converter")
+        print(" [2]  Little-endian packer")
+        print(" [3]  ASCII memory viewer")
+        print(" [4]  Array element lookup")
+        print(" [5]  Stack frame viewer")
+        print(" [0]  Quit")
+        print(DIVIDER)
 
-            case "1":
-                n = int(input("Enter a decimal number (0 to 65535): "))
-                hex_str, bin_str, signed = convert(n)
-                print(f"HEX = {hex_str}")
-                print(f"BIN(16) = {bin_str}")
-                print(f"SIGNED16 = {signed}")
+        pick = input(">> ").strip()
 
-            case "2":
-                n = int(input("Enter a number (0 to 65535): "))
-                addr_input = input("Enter memory address (e.g. 0x2000 or 8192): ").strip()
-                addr = int(addr_input, 16) if addr_input.lower().startswith("0x") else int(addr_input)
-                low, high = pack_u16_le(n)
-                print(f"LOW BYTE = {low}")
-                print(f"HIGH BYTE = {high}")
-                print(f"UNPACKED = {unpack_u16_le(low, high)}")
-                memory_write(addr, low)
-                memory_write(addr + 1, high)
-                print(f"MEM[0x{addr:04X}] = 0x{low:02X}")
-                print(f"MEM[0x{addr + 1:04X}] = 0x{high:02X}")
-                print(f"READ MEM[0x{addr:04X}] = 0x{memory_read(addr):02X}")
-                print(f"READ MEM[0x{addr + 1:04X}] = 0x{memory_read(addr + 1):02X}")
+        if pick == "1":
+            num = int(input("Enter decimal (0 to 65535): "))
+            h, b, s = convert(num)
+            print(f"HEX = {h}")
+            print(f"BIN(16) = {b}")
+            print(f"SIGNED16 = {s}")
 
-            case "3":
-                s = input("enter a string (max 10 characters): ")[:10]
-                for line in ascii_dump_lines(s):
-                    print(line)
-                print(f"LENGTH (until 0x00) = {len(s)}")
+        elif pick == "2":
+            num = int(input("Enter a 16-bit number: "))
+            raw = input("Target address (hex like 0x2000 or decimal): ").strip()
+            addr = int(raw, 16) if raw.startswith("0x") or raw.startswith("0X") else int(raw)
 
-            case "4":
-                base = int(input("enter base address (decimal): "))
-                index = int(input("enter index: "))
-                size = int(input("enter element size (1 or 2): "))
-                mode = input("enter mode (read or write): ").strip().lower()
-                addr = element_address(base, index, size)
-                print(f"ADDRESS = {base} + {index}*{size} = 0x{addr:04X}")
-                match mode:
-                    case "write":
-                        value = int(input("enter value to write: "))
-                        match size:
-                            case 1:
-                                memory_write(addr, value)
-                                print(f"WRITE size=1 value={value} to ADDRESS 0x{addr:04X}")
-                            case 2:
-                                low, high = pack_u16_le(value)
-                                memory_write(addr, low)
-                                memory_write(addr + 1, high)
-                                print(f"WRITE size=2 value={value} to ADDRESS 0x{addr:04X}")
-                    case "read":
-                        match size:
-                            case 1:
-                                print(f"READ size=1 from ADDRESS 0x{addr:04X} = {memory_read(addr)}")
-                            case 2:
-                                val = unpack_u16_le(memory_read(addr), memory_read(addr + 1))
-                                print(f"READ size=2 from ADDRESS 0x{addr:04X} = {val}")
+            bot, top = pack16(num)
+            print(f"LOW BYTE = {bot}")
+            print(f"HIGH BYTE = {top}")
+            print(f"UNPACKED = {unpack16(bot, top)}")
 
-            case "5":
-                a = int(input("enter first value (a): "))
-                b = int(input("enter second value (b): "))
-                for line in stack_frame_lines(a, b):
-                    print(line)
-                print(f"AX = {a}")
-                print(f"BX = {b}")
-                print(f"AX (AX+BX) = {a + b}")
+            memory_write(addr, bot)
+            memory_write(addr + 1, top)
 
-            case "0":
-                print("goodbye and see you later!")
-                break
+            print(f"MEM[0x{addr:04X}] = 0x{bot:02X}")
+            print(f"MEM[0x{addr + 1:04X}] = 0x{top:02X}")
+            print(f"READ MEM[0x{addr:04X}] = 0x{memory_read(addr):02X}")
+            print(f"READ MEM[0x{addr + 1:04X}] = 0x{memory_read(addr + 1):02X}")
 
-            case _:
-                print("invalid option, please try again.")
+        elif pick == "3":
+            word = input("Type a string (10 chars max): ")[:10]
+            for row in ascii_dump(word):
+                print(row)
+            print(f"LENGTH (until 0x00) = {len(word)}")
+
+        elif pick == "4":
+            base = int(input("Base address: "))
+            idx  = int(input("Element index: "))
+            sz   = int(input("Bytes per element (1 or 2): "))
+            op   = input("Operation - read or write: ").strip().lower()
+
+            target = array_address(base, idx, sz)
+            print(f"ADDRESS = {base} + {idx}*{sz} = 0x{target:04X}")
+
+            if op == "write":
+                val = int(input("Value to store: "))
+                if sz == 1:
+                    memory_write(target, val)
+                    print(f"WRITE size=1 value={val} to ADDRESS 0x{target:04X}")
+                else:
+                    b0, b1 = pack16(val)
+                    memory_write(target, b0)
+                    memory_write(target + 1, b1)
+                    print(f"WRITE size=2 value={val} to ADDRESS 0x{target:04X}")
+            else:
+                if sz == 1:
+                    print(f"READ size=1 from ADDRESS 0x{target:04X} = {memory_read(target)}")
+                else:
+                    out = unpack16(memory_read(target), memory_read(target + 1))
+                    print(f"READ size=2 from ADDRESS 0x{target:04X} = {out}")
+
+        elif pick == "5":
+            p1 = int(input("First param (a): "))
+            p2 = int(input("Second param (b): "))
+            for row in show_stack(p1, p2):
+                print(row)
+            print(f"AX = {p1}")
+            print(f"BX = {p2}")
+            print(f"AX (AX+BX) = {p1 + p2}")
+
+        elif pick == "0":
+            print("Closing tool.")
+            running = False
+
+        else:
+            print("Not a valid choice, try again.")
 
 
 if __name__ == "__main__":
