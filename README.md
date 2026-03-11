@@ -9,7 +9,8 @@ python programA.py
 
 running the tests 
 
-python -m unittest testA.py -v
+install: pip3 install pytest
+run: pytest
 
 
 What each option does
