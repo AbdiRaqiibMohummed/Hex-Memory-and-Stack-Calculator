@@ -12,7 +12,6 @@ running the tests
 install: pip3 install pytest
 run: pytest
 
-
 What each option does
 
 Option
