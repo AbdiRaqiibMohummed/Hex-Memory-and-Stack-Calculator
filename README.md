@@ -1,4 +1,4 @@
-CMP5361 - Task 1: Hex, Memory and Stack Calculator
+Task 1: Hex, Memory and Stack Calculator
 
 Requirements
 Python 3.11 or higher
